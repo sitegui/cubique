@@ -1,6 +1,4 @@
-'use strict'
-
-class Problem {
+export class Problem {
   constructor (startSize, targetSize) {
     this.startSize = startSize
     this.currentSize = startSize
@@ -70,6 +68,21 @@ class Problem {
       err,
       errRate
     }
+  }
+
+  /**
+   * @returns {boolean}
+   */
+  isSolved () {
+    return this.targetSize === 1
+  }
+
+  /**
+   * @param {Problem} other
+   * @returns {boolean}
+   */
+  isEqual (other) {
+    return this.startSize === other.startSize && this.currentSize === other.currentSize && this.targetSize === other.targetSize
   }
 
   _clone () {

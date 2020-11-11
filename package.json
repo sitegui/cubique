@@ -2,7 +2,7 @@
   "name": "cubique",
   "version": "1.0.0",
   "description": "Experiment with a funny math problem on converting dice results into a different number of faces",
-  "main": "Problem.js",
+  "main": "src/Problem.mjs",
   "scripts": {
     "test": "mocha"
   },

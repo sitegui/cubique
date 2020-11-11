@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Return the divisors of a given positive integer
  * @param {number} n
@@ -52,4 +50,28 @@ export function listCommonDivisors (n1, n2) {
   // Take the smallest and filter from its divisors
   const [small, large] = [Math.min(n1, n2), Math.max(n1, n2)]
   return listDivisors(small).filter(d => large % d === 0)
+}
+
+/**
+ * Return the greatest common divisor between both values
+ * @param {number} n1
+ * @param {number} n2
+ * @returns {number}
+ */
+export function greatestCommonDivisor (n1, n2) {
+  if (!Number.isSafeInteger(n1) || n1 < 1) {
+    throw new Error(`${n1} is not a natural number`)
+  }
+  if (!Number.isSafeInteger(n2) || n2 < 1) {
+    throw new Error(`${n2} is not a natural number`)
+  }
+
+  let [remainder, other] = [Math.min(n1, n2), Math.max(n1, n2)]
+  while (remainder !== 0) {
+    const newRemainder = other % remainder
+    other = remainder
+    remainder = newRemainder
+  }
+
+  return other
 }

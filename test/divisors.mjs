@@ -1,5 +1,5 @@
 import assert from 'assert'
-import { listDivisors, listCommonDivisors } from '../divisors.mjs'
+import { listDivisors, listCommonDivisors, greatestCommonDivisor } from '../src/divisors.mjs'
 
 describe('listDivisors', function () {
   it('should return the expected divisors in ascending order', function () {
@@ -27,5 +27,18 @@ describe('listCommonDivisors', function () {
       assert.deepStrictEqual(listCommonDivisors(prime, prime), [1, prime])
       assert.deepStrictEqual(listCommonDivisors(prime, prime * prime), [1, prime])
     }
+  })
+})
+
+describe('greatestCommonDivisor', function () {
+  it('should return the GCD', function () {
+    assert.strictEqual(greatestCommonDivisor(1, 10), 1)
+    assert.strictEqual(greatestCommonDivisor(10, 23), 1)
+    assert.strictEqual(greatestCommonDivisor(89, 147), 1)
+
+    assert.strictEqual(greatestCommonDivisor(210, 35), 35)
+    assert.strictEqual(greatestCommonDivisor(210, 49), 7)
+    assert.strictEqual(greatestCommonDivisor(35, 210), 35)
+    assert.strictEqual(greatestCommonDivisor(49, 210), 7)
   })
 })
