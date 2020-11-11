@@ -85,6 +85,13 @@ export class Problem {
     return this.startSize === other.startSize && this.currentSize === other.currentSize && this.targetSize === other.targetSize
   }
 
+  /**
+   * @returns {string}
+   */
+  toString () {
+    return `(${this.startSize}) ${this.currentSize} -> ${this.targetSize}`
+  }
+
   _clone () {
     const cloned = new Problem(this.startSize, this.targetSize)
     cloned.currentSize = this.currentSize

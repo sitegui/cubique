@@ -5,36 +5,58 @@ export class ActionRethrow {
   constructor (child) {
     this.child = child
   }
+
+  toString () {
+    return `rethrow to get ${this.child.problem}`
+  }
 }
 
 export class ActionReduce {
   /**
+   * @param {number} factor
    * @param {StrategyNode} child
    */
-  constructor (child) {
+  constructor (factor, child) {
+    this.factor = factor
     this.child = child
+  }
+
+  toString () {
+    return `reduce by ${this.factor} to get ${this.child.problem}`
   }
 }
 
 export class ActionTryReduce {
   /**
+   * @param {number} currentFactor
+   * @param {number} targetFactor
    * @param {number} errRate
    * @param {StrategyNode} okChild
    * @param {StrategyNode} errChild
    */
-  constructor (errRate, okChild, errChild) {
+  constructor (currentFactor, targetFactor, errRate, okChild, errChild) {
+    this.currentFactor = currentFactor
+    this.targetFactor = targetFactor
     this.errRate = errRate
     this.okChild = okChild
     this.errChild = errChild
+  }
+
+  toString () {
+    return `try to reduce by ${this.currentFactor} -> ${this.targetFactor} to get ${this.okChild.problem}. If not, get ${this.errChild.problem}`
   }
 }
 
 export class StrategyNode {
   /**
+   * @param {StrategyGraph} graph
+   * @param {StrategyNode|null} parent
    * @param {Problem} problem
    * @param {?ActionRethrow|ActionReduce|ActionTryReduce} action
    */
-  constructor (problem, action) {
+  constructor (graph, parent, problem, action) {
+    this.graph = graph
+    this.parent = parent
     this.problem = problem
     this.action = action
   }
@@ -44,8 +66,11 @@ export class StrategyNode {
    * @returns {ActionRethrow}
    */
   rethrow () {
-    this.action = new ActionRethrow(new StrategyNode(this.problem.rethrow(), null))
-    return this.action
+    this._clearAction()
+    const action = new ActionRethrow(this._constructOrRetrieveForProblem(this.problem.rethrow()))
+    this.action = action
+    this.graph.openNodes.delete(this)
+    return action
   }
 
   /**
@@ -54,7 +79,11 @@ export class StrategyNode {
    * @returns {ActionReduce}
    */
   reduce (factor) {
-    this.action = new ActionReduce(new StrategyNode(this.problem.reduce(factor), null))
+    this._clearAction()
+    const action = new ActionReduce(factor, this._constructOrRetrieveForProblem(this.problem.reduce(factor)))
+    this.action = action
+    this.graph.openNodes.delete(this)
+    return action
   }
 
   /**
@@ -64,44 +93,125 @@ export class StrategyNode {
    * @returns {ActionTryReduce}
    */
   tryReduce (currentFactor, targetFactor) {
+    this._clearAction()
     const { err, errRate, ok } = this.problem.tryReduce(currentFactor, targetFactor)
-    this.action = new ActionTryReduce(errRate, new StrategyNode(ok, null), new StrategyNode(err, null))
+    const action = new ActionTryReduce(currentFactor, targetFactor, errRate, this._constructOrRetrieveForProblem(ok), this._constructOrRetrieveForProblem(err))
+    this.action = action
+    this.graph.openNodes.delete(this)
+    return action
+  }
+
+  toString () {
+    return `${this.problem} => ${this.action}`
+  }
+
+  /**
+   * Clear the current action, keep invariants on the graph as well
+   */
+  _clearAction () {
+    if (this.action !== null) {
+      this.action = null
+      this.graph.updateOpenNodes()
+    }
+  }
+
+  /**
+   * Return the closest ascendant or even itself that has the given problem. If not found, create a new child node.
+   * @param {Problem} problem
+   * @returns {StrategyNode}
+   * @private
+   */
+  _constructOrRetrieveForProblem (problem) {
+    if (this.problem.isEqual(problem)) {
+      return this
+    } else if (this.parent !== null) {
+      return this.parent._constructOrRetrieveForProblem(problem)
+    } else {
+      const node = new StrategyNode(this.graph, this, problem, null)
+      if (!node.problem.isSolved()) {
+        this.graph.openNodes.add(node)
+      }
+      return node
+    }
   }
 }
 
-export class StrategyTree {
+export class StrategyGraph {
   /**
-   * @param {StrategyNode} root
+   * @param {Problem} rootProblem
    */
-  constructor (root) {
-    this.root = root
+  constructor (rootProblem) {
+    this.root = new StrategyNode(this, null, rootProblem, null)
+    /**
+     * Reference all nodes that need to be solved, that is, they do not have an associated action and the problem is
+     * unsolved.
+     * @type {Set<StrategyNode>}
+     */
+    this.openNodes = new Set(rootProblem.isSolved() ? [] : [this.root])
   }
 
   /**
-   * Return a naive strategy to solve a given problem: rethrow until a full reduction can be tried
-   * @param {Problem} problem
-   * @returns {StrategyTree}
+   * Apply a function to all nodes once
+   * @param {function} callback
    */
-  static naiveFromProblem (problem) {
-    const root = new StrategyNode(problem, null)
-    const knownProblems = []
+  visitNodes (callback) {
+    const visited = new Set()
 
-    let leaf = root
-
-    while (!leaf.problem.isSolved() && knownProblems.some(problem => problem.isEqual(leaf.problem))) {
-      knownProblems.push(leaf.problem)
-
-      // Rethrow until the reduction can be applied
-      while (leaf.problem.currentSize < leaf.problem.targetSize) {
-        leaf = leaf.rethrow().child
-        knownProblems.push(leaf.problem)
+    function maybeVisit (node) {
+      if (visited.has(node)) {
+        return
       }
 
-      // Try a full reduction. The ok branch will be solved, but we may need to continue with the err branch
-      leaf = leaf.tryReduce(leaf.problem.currentSize, leaf.problem.targetSize).errChild
-      knownProblems.push(leaf.problem)
+      visited.add(node)
+      callback(node)
+
+      const action = node.action
+      if (action instanceof ActionRethrow) {
+        maybeVisit(action.child)
+      } else if (action instanceof ActionReduce) {
+        maybeVisit(action.child)
+      } else if (action instanceof ActionTryReduce) {
+        maybeVisit(action.okChild)
+        maybeVisit(action.errChild)
+      }
     }
 
-    return new StrategyTree(root)
+    maybeVisit(this.root)
+  }
+
+  /**
+   * Update the list of open problems
+   * @private
+   */
+  updateOpenNodes () {
+    this.openNodes = new Set()
+    this.visitNodes(node => {
+      if (node.action === null && !node.problem.isSolved()) {
+        this.openNodes.add(node)
+      }
+    })
+  }
+
+  /**
+   * Solve the open problems with a naive strategy: rethrow until a full reduction can be tried
+   */
+  solveNaive () {
+    while (this.openNodes.size > 0) {
+      const node = this.openNodes.values().next().value
+
+      if (node.problem.currentSize < node.problem.targetSize) {
+        node.rethrow()
+      } else {
+        node.tryReduce(node.problem.currentSize, node.problem.targetSize)
+      }
+    }
+  }
+
+  toString () {
+    const nodes = []
+    this.visitNodes(node => {
+      nodes.push(node.toString())
+    })
+    return nodes.join(',\n')
   }
 }
