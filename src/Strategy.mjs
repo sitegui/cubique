@@ -1,3 +1,5 @@
+import { greatestCommonDivisor } from './divisors.mjs'
+
 export class ActionRethrow {
   /**
    * @param {StrategyNode} child
@@ -67,7 +69,7 @@ export class StrategyNode {
    */
   rethrow () {
     this._clearAction()
-    const action = new ActionRethrow(this._constructOrRetrieveForProblem(this.problem.rethrow()))
+    const action = new ActionRethrow(this._constructOrRetrieveForProblem(this.problem.rethrow(), this))
     this.action = action
     this.graph.openNodes.delete(this)
     return action
@@ -80,7 +82,7 @@ export class StrategyNode {
    */
   reduce (factor) {
     this._clearAction()
-    const action = new ActionReduce(factor, this._constructOrRetrieveForProblem(this.problem.reduce(factor)))
+    const action = new ActionReduce(factor, this._constructOrRetrieveForProblem(this.problem.reduce(factor), this))
     this.action = action
     this.graph.openNodes.delete(this)
     return action
@@ -95,7 +97,12 @@ export class StrategyNode {
   tryReduce (currentFactor, targetFactor) {
     this._clearAction()
     const { err, errRate, ok } = this.problem.tryReduce(currentFactor, targetFactor)
-    const action = new ActionTryReduce(currentFactor, targetFactor, errRate, this._constructOrRetrieveForProblem(ok), this._constructOrRetrieveForProblem(err))
+    const action = new ActionTryReduce(
+      currentFactor,
+      targetFactor,
+      errRate,
+      this._constructOrRetrieveForProblem(ok, this),
+      this._constructOrRetrieveForProblem(err, this))
     this.action = action
     this.graph.openNodes.delete(this)
     return action
@@ -118,16 +125,17 @@ export class StrategyNode {
   /**
    * Return the closest ascendant or even itself that has the given problem. If not found, create a new child node.
    * @param {Problem} problem
+   * @param {StrategyNode} originalParent
    * @returns {StrategyNode}
    * @private
    */
-  _constructOrRetrieveForProblem (problem) {
+  _constructOrRetrieveForProblem (problem, originalParent) {
     if (this.problem.isEqual(problem)) {
       return this
     } else if (this.parent !== null) {
-      return this.parent._constructOrRetrieveForProblem(problem)
+      return this.parent._constructOrRetrieveForProblem(problem, originalParent)
     } else {
-      const node = new StrategyNode(this.graph, this, problem, null)
+      const node = new StrategyNode(this.graph, originalParent, problem, null)
       if (!node.problem.isSolved()) {
         this.graph.openNodes.add(node)
       }
@@ -200,6 +208,27 @@ export class StrategyGraph {
       const node = this.openNodes.values().next().value
 
       if (node.problem.currentSize < node.problem.targetSize) {
+        node.rethrow()
+      } else {
+        node.tryReduce(node.problem.currentSize, node.problem.targetSize)
+      }
+    }
+  }
+
+  /**
+   * Solve the open problems with a rather ok strategy, by doing the first possible action:
+   * 1. reduce by the greatest common factor
+   * 2. try to reduce fully
+   * 3. rethrow
+   */
+  solve () {
+    while (this.openNodes.size > 0) {
+      const node = this.openNodes.values().next().value
+
+      const gcd = greatestCommonDivisor(node.problem.currentSize, node.problem.targetSize)
+      if (gcd !== 1) {
+        node.reduce(gcd)
+      } else if (node.problem.currentSize < node.problem.targetSize) {
         node.rethrow()
       } else {
         node.tryReduce(node.problem.currentSize, node.problem.targetSize)
