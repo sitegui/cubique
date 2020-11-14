@@ -7,14 +7,34 @@ export class Variable {
 }
 
 export class VariableFactory {
-  constructor () {
+  /**
+   * @param {string} prefix
+   */
+  constructor (prefix = '') {
+    this.prefix = prefix
     this.nextName = 'a'
+    /**
+     * @type {Set<Variable>}
+     */
+    this.variables = new Set()
   }
 
+  /**
+   * @returns {Variable}
+   */
   nextVariable () {
-    const variable = new Variable(this.nextName)
+    const variable = new Variable(`${this.prefix}${this.nextName}`)
     this.nextName = String.fromCharCode(this.nextName.charCodeAt(0) + 1)
+    this.variables.add(variable)
     return variable
+  }
+
+  /**
+   * @param {Variable} variable
+   * @returns {boolean}
+   */
+  has (variable) {
+    return this.variables.has(variable)
   }
 }
 
@@ -26,6 +46,10 @@ export class LinearExpression {
   constructor (bias = Fraction.zero(), weights = new Map()) {
     this.bias = bias
     this.weights = weights
+  }
+
+  static zero () {
+    return new LinearExpression(Fraction.zero())
   }
 
   static one () {
@@ -72,13 +96,27 @@ export class LinearExpression {
   }
 
   /**
+   * If this expression is composed of a single variable with weight 1, this variable is returned.
+   * @returns {null|Variable}
+   */
+  asSingleVariable () {
+    if (this.bias.isEquals(Fraction.zero()) && this.weights.size === 1) {
+      const [variable, weight] = this.weights.entries().next().value
+      if (weight.isEquals(Fraction.one())) {
+        return variable
+      }
+    }
+    return null
+  }
+
+  /**
    * Solve the equation `this = variable` for `variable`
    * @param {Variable} variable
    * @returns {LinearExpression}
    */
   solveEqualsTo (variable) {
-    const variableWeight = this.weights.get(variable)
     const result = this.clone()
+    const variableWeight = result.weights.get(variable)
     if (variableWeight === undefined) {
       // `this` is independent
       return result
@@ -87,6 +125,24 @@ export class LinearExpression {
       // `variable = independent / (1 - weight)`
       result.weights.delete(variable)
       return result.mul(Fraction.one().sub(variableWeight).inv())
+    }
+  }
+
+  /**
+   * Return a new expression obtained by replacing the given variable by another expression
+   * @param {Variable} variable
+   * @param {LinearExpression} expression
+   * @returns {LinearExpression}
+   */
+  substitute (variable, expression) {
+    const result = this.clone()
+    const variableWeight = result.weights.get(variable)
+    if (variableWeight === undefined) {
+      // `this` is independent
+      return result
+    } else {
+      result.weights.delete(variable)
+      return result.add(expression.mul(variableWeight))
     }
   }
 
@@ -126,6 +182,6 @@ export class LinearExpression {
       }
     }
 
-    return string
+    return string === '' ? '0' : string
   }
 }

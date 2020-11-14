@@ -1,3 +1,5 @@
+import { Fraction } from './Fraction.mjs'
+
 export class Problem {
   constructor (startSize, targetSize) {
     this.startSize = startSize
@@ -38,7 +40,7 @@ export class Problem {
    * Returns the possible results when doing an imperfect match between factor from each side
    * @param currentFactor
    * @param targetFactor
-   * @returns {{err: Problem, ok: Problem, errRate: number}}
+   * @returns {{err: Problem, ok: Problem, errRate: Fraction}}
    */
   tryReduce (currentFactor, targetFactor) {
     if (this.currentSize % currentFactor !== 0) {
@@ -61,7 +63,7 @@ export class Problem {
     const err = this._clone()
     err.currentSize /= currentFactor
 
-    const errRate = (currentFactor % targetFactor) / currentFactor
+    const errRate = new Fraction(currentFactor % targetFactor, currentFactor)
 
     return {
       ok,
@@ -89,7 +91,7 @@ export class Problem {
    * @returns {string}
    */
   toString () {
-    return `(${this.startSize}) ${this.currentSize} -> ${this.targetSize}`
+    return `${this.currentSize} -> ${this.targetSize}`
   }
 
   _clone () {

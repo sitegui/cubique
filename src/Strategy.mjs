@@ -1,4 +1,6 @@
 import { greatestCommonDivisor } from './divisors.mjs'
+import { LinearExpression, VariableFactory } from './LinearExpression.mjs'
+import { Fraction } from './Fraction.mjs'
 
 export class ChildNewNode {
   /**
@@ -50,7 +52,7 @@ export class ActionTryReduce {
   /**
    * @param {number} currentFactor
    * @param {number} targetFactor
-   * @param {number} errRate
+   * @param {Fraction} errRate
    * @param {StrategyNode} okNode
    * @param {ChildNewNode|ChildLink} errChild
    */
@@ -82,6 +84,11 @@ export class StrategyNode {
      * @type {ActionRethrow|ActionReduce|ActionTryReduce|null}
      */
     this.action = null
+
+    /**
+     * @type {LinearExpression|null}
+     */
+    this.cost = null
   }
 
   /**
@@ -124,7 +131,8 @@ export class StrategyNode {
   }
 
   toString () {
-    return `${this.problem} => ${this.action}`
+    const cost = this.cost === null ? '' : ` with cost ${this.cost}`
+    return `${this.problem} => ${this.action}${cost}`
   }
 
   /**
@@ -158,7 +166,7 @@ export class StrategyGraph {
    * @param {Problem} rootProblem
    */
   constructor (rootProblem) {
-    this.root = new StrategyNode(this, null, rootProblem, null)
+    this.root = new StrategyNode(this, null, rootProblem)
   }
 
   /**
@@ -221,6 +229,106 @@ export class StrategyGraph {
     }
 
     return null
+  }
+
+  /**
+   * Update the costs of all nodes
+   */
+  updateCosts () {
+    const variableFactory = new VariableFactory()
+    const placeholderFactory = new VariableFactory('link-')
+
+    /**
+     * Update and return the cost for a given child. A link child marks the beginning of a cycle.
+     * @param {ChildNewNode|ChildLink} child
+     */
+    function getCostForChild (child) {
+      if (child instanceof ChildNewNode) {
+        return getCostForNode(child.node)
+      } else if (child instanceof ChildLink) {
+        // We have a cycle here: the child is a link to a parent. Since we do not yet know the cost of the parent,
+        // we will put a placeholder variable there
+        child.node.cost = LinearExpression.variable(placeholderFactory.nextVariable())
+        return child.node.cost
+      }
+    }
+
+    /**
+     * Update and return the cost for a given node and its descendants.
+     * This cost may not yet be final if the node is part of a cycle. In this case, it will include some placeholder
+     * variables, that will be resolved once the cycle root is resolved.
+     * @param {StrategyNode} node
+     * @returns {LinearExpression}
+     */
+    function getCostForNode (node) {
+      if (node.action === null) {
+        // Leaf node: base case
+        if (node.problem.isSolved()) {
+          node.cost = LinearExpression.zero()
+        } else {
+          node.cost = LinearExpression.variable(variableFactory.nextVariable())
+        }
+      } else if (node.action instanceof ActionRethrow) {
+        const childCost = getCostForChild(node.action.child)
+        saveCost(node, childCost.add(LinearExpression.one()))
+      } else if (node.action instanceof ActionReduce) {
+        const childCost = getCostForChild(node.action.child)
+        saveCost(node, childCost)
+      } else if (node.action instanceof ActionTryReduce) {
+        const errRate = node.action.errRate
+        const errCost = getCostForChild(node.action.errChild).mul(errRate)
+        const okCost = getCostForNode(node.action.okNode).mul(Fraction.one().sub(errRate))
+        saveCost(node, errCost.add(okCost))
+      }
+
+      return node.cost
+    }
+
+    /**
+     * Save the cost at the given node. If this closes a cycle, the placeholder variable will be solved and replaced
+     * in the cycle.
+     * @param {StrategyNode} node
+     * @param {LinearExpression} cost
+     */
+    function saveCost (node, cost) {
+      const possiblePlaceholder = node.cost !== null ? node.cost.asSingleVariable() : null
+
+      if (possiblePlaceholder === null || !placeholderFactory.has(possiblePlaceholder)) {
+        // Simple case
+        node.cost = cost
+      } else {
+        // This is a placeholder placed when the node at the end of the cycle was first visited.
+        // This is the root cycle and we know its cost is equal to the placeholder and the linear expression passed as
+        // argument.
+        const solvedCost = cost.solveEqualsTo(possiblePlaceholder)
+
+        // Recursively substitute in the cost expressions of the children
+        let currentNode = node
+        while (true) {
+          currentNode.cost = currentNode.cost.substitute(possiblePlaceholder, solvedCost)
+
+          let child = null
+          if (currentNode.action instanceof ActionRethrow) {
+            child = currentNode.action.child
+          } else if (currentNode.action instanceof ActionReduce) {
+            child = currentNode.action.child
+          } else if (currentNode.action instanceof ActionTryReduce) {
+            // We only follow the "err" path, since we know that the "ok" path is an independent graph
+            child = currentNode.action.errChild
+          } else {
+            break
+          }
+
+          if (child instanceof ChildNewNode) {
+            currentNode = child.node
+          } else {
+            break
+          }
+        }
+      }
+    }
+
+    getCostForNode(this.root)
   }
 
   /**

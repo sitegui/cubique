@@ -30,6 +30,7 @@ describe('LinearExpression', function () {
     const x = new Variable('x')
     const a = new Variable('a')
     const b = new Variable('b')
+
     const expr = LinearExpression.one()
       .add(LinearExpression.variable(a).mul(new Fraction(2, 1)))
       .add(LinearExpression.variable(b).mul(new Fraction(3, 1)))
@@ -42,5 +43,36 @@ describe('LinearExpression', function () {
       .add(LinearExpression.variable(b).mul(new Fraction(2, 3)))
 
     assert.strictEqual(expr2.solveEqualsTo(a).toString(), '30/7 + 10/3 b')
+  })
+
+  it('should return the single variable, if possible', function () {
+    const a = new Variable('a')
+    const b = new Variable('b')
+
+    assert.strictEqual(LinearExpression.one().asSingleVariable(), null)
+
+    assert.strictEqual(LinearExpression.variable(a).asSingleVariable(), a)
+    assert.strictEqual(LinearExpression.variable(a).mul(Fraction.one()).asSingleVariable(), a)
+    assert.strictEqual(LinearExpression.variable(a).mul(new Fraction(2, 1)).asSingleVariable(), null)
+
+    assert.strictEqual(LinearExpression.variable(a).add(LinearExpression.one()).asSingleVariable(), null)
+    assert.strictEqual(LinearExpression.variable(a).add(LinearExpression.variable(b)).asSingleVariable(), null)
+  })
+
+  it('should substitute variables', function () {
+    const a = new Variable('a')
+    const b = new Variable('b')
+    const c = new Variable('b')
+
+    const baseExpr = LinearExpression.variable(a).mul(new Fraction(2, 1))
+      .add(LinearExpression.one().mul(new Fraction(1, 7)))
+      .add(LinearExpression.variable(b))
+    assert.strictEqual(baseExpr.toString(), '1/7 + 2 a + b')
+
+    assert.strictEqual(baseExpr.substitute(a, LinearExpression.one()).toString(), '15/7 + b')
+
+    assert.strictEqual(baseExpr.substitute(a, LinearExpression.variable(b)).toString(), '1/7 + 3 b')
+
+    assert.strictEqual(baseExpr.substitute(c, LinearExpression.one()).toString(), '1/7 + 2 a + b')
   })
 })
