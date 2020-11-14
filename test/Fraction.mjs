@@ -41,4 +41,8 @@ describe('Fraction', function () {
     assert.deepStrictEqual(new Fraction(-13, 27).neg(), new Fraction(13, 27))
     assert.deepStrictEqual(new Fraction(-13, 27).inv(), new Fraction(-27, 13))
   })
+
+  it('should convert to number', function () {
+    assert.deepStrictEqual(new Fraction(2, 7).asNumber(), 2 / 7)
+  })
 })

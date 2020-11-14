@@ -90,22 +90,30 @@ export class Fraction {
   }
 
   /**
+   * @returns {Fraction}
+   */
+  abs () {
+    return new Fraction(Math.abs(this.numerator), this.denominator)
+  }
+
+  /**
+   * @param {Fraction} another
+   * @return {boolean}
+   */
+  isEquals (another) {
+    return this.numerator === another.numerator && this.denominator === another.denominator
+  }
+
+  /**
    * @return {number}
    */
   asNumber () {
     return this.numerator / this.denominator
   }
-}
 
-/**
- * @param {any} x
- * @returns {number}
- */
-function assertPositiveInteger (x) {
-  if (!Number.isSafeInteger(x) || x < 1) {
-    throw new Error(`${x} is not a natural number`)
+  toString () {
+    return this.denominator === 1 ? String(this.numerator) : `${this.numerator}/${this.denominator}`
   }
-  return x
 }
 
 /**
