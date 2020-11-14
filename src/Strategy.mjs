@@ -1,22 +1,40 @@
 import { greatestCommonDivisor } from './divisors.mjs'
 
+export class ChildNewNode {
+  /**
+   * @param {StrategyNode} node
+   */
+  constructor (node) {
+    this.node = node
+  }
+}
+
+export class ChildLink {
+  /**
+   * @param {StrategyNode} node
+   */
+  constructor (node) {
+    this.node = node
+  }
+}
+
 export class ActionRethrow {
   /**
-   * @param {StrategyNode} child
+   * @param {ChildNewNode|ChildLink} child
    */
   constructor (child) {
     this.child = child
   }
 
   toString () {
-    return `rethrow to get ${this.child.problem}`
+    return `rethrow to get ${this.child.node.problem}`
   }
 }
 
 export class ActionReduce {
   /**
    * @param {number} factor
-   * @param {StrategyNode} child
+   * @param {ChildNewNode|ChildLink} child
    */
   constructor (factor, child) {
     this.factor = factor
@@ -24,7 +42,7 @@ export class ActionReduce {
   }
 
   toString () {
-    return `reduce by ${this.factor} to get ${this.child.problem}`
+    return `reduce by ${this.factor} to get ${this.child.node.problem}`
   }
 }
 
@@ -33,34 +51,37 @@ export class ActionTryReduce {
    * @param {number} currentFactor
    * @param {number} targetFactor
    * @param {number} errRate
-   * @param {StrategyNode} okChild
-   * @param {StrategyNode} errChild
+   * @param {StrategyNode} okNode
+   * @param {ChildNewNode|ChildLink} errChild
    */
-  constructor (currentFactor, targetFactor, errRate, okChild, errChild) {
+  constructor (currentFactor, targetFactor, errRate, okNode, errChild) {
     this.currentFactor = currentFactor
     this.targetFactor = targetFactor
     this.errRate = errRate
-    this.okChild = okChild
+    this.okNode = okNode
     this.errChild = errChild
   }
 
   toString () {
-    return `try to reduce by ${this.currentFactor} -> ${this.targetFactor} to get ${this.okChild.problem}. If not, get ${this.errChild.problem}`
+    return `try to reduce by ${this.currentFactor} -> ${this.targetFactor} to get ${this.okNode.problem}. If not, get ${this.errChild.node.problem}`
   }
 }
 
 export class StrategyNode {
   /**
    * @param {StrategyGraph} graph
-   * @param {StrategyNode|null} parent
+   * @param {StrategyNode|null} firstParent
    * @param {Problem} problem
-   * @param {?ActionRethrow|ActionReduce|ActionTryReduce} action
    */
-  constructor (graph, parent, problem, action) {
+  constructor (graph, firstParent, problem) {
     this.graph = graph
-    this.parent = parent
+    this.firstParent = firstParent
     this.problem = problem
-    this.action = action
+
+    /**
+     * @type {ActionRethrow|ActionReduce|ActionTryReduce|null}
+     */
+    this.action = null
   }
 
   /**
@@ -68,10 +89,8 @@ export class StrategyNode {
    * @returns {ActionRethrow}
    */
   rethrow () {
-    this._clearAction()
-    const action = new ActionRethrow(this._constructOrRetrieveForProblem(this.problem.rethrow(), this))
+    const action = new ActionRethrow(this._buildChild(this.problem.rethrow(), this))
     this.action = action
-    this.graph.openNodes.delete(this)
     return action
   }
 
@@ -81,10 +100,8 @@ export class StrategyNode {
    * @returns {ActionReduce}
    */
   reduce (factor) {
-    this._clearAction()
-    const action = new ActionReduce(factor, this._constructOrRetrieveForProblem(this.problem.reduce(factor), this))
+    const action = new ActionReduce(factor, this._buildChild(this.problem.reduce(factor), this))
     this.action = action
-    this.graph.openNodes.delete(this)
     return action
   }
 
@@ -95,16 +112,14 @@ export class StrategyNode {
    * @returns {ActionTryReduce}
    */
   tryReduce (currentFactor, targetFactor) {
-    this._clearAction()
     const { err, errRate, ok } = this.problem.tryReduce(currentFactor, targetFactor)
     const action = new ActionTryReduce(
       currentFactor,
       targetFactor,
       errRate,
-      this._constructOrRetrieveForProblem(ok, this),
-      this._constructOrRetrieveForProblem(err, this))
+      new StrategyNode(this.graph, this, ok),
+      this._buildChild(err, this))
     this.action = action
-    this.graph.openNodes.delete(this)
     return action
   }
 
@@ -113,33 +128,27 @@ export class StrategyNode {
   }
 
   /**
-   * Clear the current action, keep invariants on the graph as well
+   * @returns {boolean}
    */
-  _clearAction () {
-    if (this.action !== null) {
-      this.action = null
-      this.graph.updateOpenNodes()
-    }
+  isOpen () {
+    return this.action === null && !this.problem.isSolved()
   }
 
   /**
    * Return the closest ascendant or even itself that has the given problem. If not found, create a new child node.
    * @param {Problem} problem
    * @param {StrategyNode} originalParent
-   * @returns {StrategyNode}
+   * @returns {ChildNewNode|ChildLink}
    * @private
    */
-  _constructOrRetrieveForProblem (problem, originalParent) {
+  _buildChild (problem, originalParent) {
     if (this.problem.isEqual(problem)) {
-      return this
-    } else if (this.parent !== null) {
-      return this.parent._constructOrRetrieveForProblem(problem, originalParent)
+      return new ChildLink(this)
+    } else if (this.firstParent !== null) {
+      return this.firstParent._buildChild(problem, originalParent)
     } else {
-      const node = new StrategyNode(this.graph, originalParent, problem, null)
-      if (!node.problem.isSolved()) {
-        this.graph.openNodes.add(node)
-      }
-      return node
+      const node = new StrategyNode(this.graph, originalParent, problem)
+      return new ChildNewNode(node)
     }
   }
 }
@@ -150,27 +159,17 @@ export class StrategyGraph {
    */
   constructor (rootProblem) {
     this.root = new StrategyNode(this, null, rootProblem, null)
-    /**
-     * Reference all nodes that need to be solved, that is, they do not have an associated action and the problem is
-     * unsolved.
-     * @type {Set<StrategyNode>}
-     */
-    this.openNodes = new Set(rootProblem.isSolved() ? [] : [this.root])
   }
 
   /**
-   * Apply a function to all nodes once
-   * @param {function} callback
+   * Apply a function to all nodes exactly once
+   * @param {function(StrategyNode):void} callback
    */
   visitNodes (callback) {
-    const visited = new Set()
-
-    function maybeVisit (node) {
-      if (visited.has(node)) {
-        return
-      }
-
-      visited.add(node)
+    /**
+     * @param {StrategyNode} node
+     */
+    function visit (node) {
       callback(node)
 
       const action = node.action
@@ -179,33 +178,60 @@ export class StrategyGraph {
       } else if (action instanceof ActionReduce) {
         maybeVisit(action.child)
       } else if (action instanceof ActionTryReduce) {
-        maybeVisit(action.okChild)
         maybeVisit(action.errChild)
+        visit(action.okNode)
       }
     }
 
-    maybeVisit(this.root)
+    /**
+     * @param {ChildNewNode|ChildLink} child
+     */
+    function maybeVisit (child) {
+      if (child instanceof ChildNewNode) {
+        visit(child.node)
+      }
+    }
+
+    visit(this.root)
   }
 
   /**
-   * Update the list of open problems
-   * @private
+   * Find an open node
+   * @returns {StrategyNode|null}
    */
-  updateOpenNodes () {
-    this.openNodes = new Set()
-    this.visitNodes(node => {
-      if (node.action === null && !node.problem.isSolved()) {
-        this.openNodes.add(node)
+  findAnOpenNode () {
+    class FoundOpenNode {
+      constructor (node) {
+        this.node = node
       }
-    })
+    }
+
+    try {
+      this.visitNodes(node => {
+        if (node.isOpen()) {
+          throw new FoundOpenNode(node)
+        }
+      })
+    } catch (ex) {
+      if (ex instanceof FoundOpenNode) {
+        return ex.node
+      } else {
+        throw ex
+      }
+    }
+
+    return null
   }
 
   /**
    * Solve the open problems with a naive strategy: rethrow until a full reduction can be tried
    */
   solveNaive () {
-    while (this.openNodes.size > 0) {
-      const node = this.openNodes.values().next().value
+    while (true) {
+      const node = this.findAnOpenNode()
+      if (node === null) {
+        return
+      }
 
       if (node.problem.currentSize < node.problem.targetSize) {
         node.rethrow()
@@ -222,8 +248,11 @@ export class StrategyGraph {
    * 3. rethrow
    */
   solve () {
-    while (this.openNodes.size > 0) {
-      const node = this.openNodes.values().next().value
+    while (true) {
+      const node = this.findAnOpenNode()
+      if (node === null) {
+        return
+      }
 
       const gcd = greatestCommonDivisor(node.problem.currentSize, node.problem.targetSize)
       if (gcd !== 1) {
