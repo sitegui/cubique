@@ -4,9 +4,7 @@
  * @returns {number[]}
  */
 export function listDivisors (n) {
-  if (!Number.isSafeInteger(n) || n < 1) {
-    throw new Error(`${n} is not a natural number`)
-  }
+  assertPositiveInteger(n)
 
   const divisors = []
 
@@ -40,12 +38,8 @@ export function listDivisors (n) {
  * @returns {number[]}
  */
 export function listCommonDivisors (n1, n2) {
-  if (!Number.isSafeInteger(n1) || n1 < 1) {
-    throw new Error(`${n1} is not a natural number`)
-  }
-  if (!Number.isSafeInteger(n2) || n2 < 1) {
-    throw new Error(`${n2} is not a natural number`)
-  }
+  assertPositiveInteger(n1)
+  assertPositiveInteger(n2)
 
   // Take the smallest and filter from its divisors
   const [small, large] = [Math.min(n1, n2), Math.max(n1, n2)]
@@ -59,12 +53,8 @@ export function listCommonDivisors (n1, n2) {
  * @returns {number}
  */
 export function greatestCommonDivisor (n1, n2) {
-  if (!Number.isSafeInteger(n1) || n1 < 1) {
-    throw new Error(`${n1} is not a natural number`)
-  }
-  if (!Number.isSafeInteger(n2) || n2 < 1) {
-    throw new Error(`${n2} is not a natural number`)
-  }
+  assertPositiveInteger(n1)
+  assertPositiveInteger(n2)
 
   let [remainder, other] = [Math.min(n1, n2), Math.max(n1, n2)]
   while (remainder !== 0) {
@@ -74,4 +64,13 @@ export function greatestCommonDivisor (n1, n2) {
   }
 
   return other
+}
+
+/**
+ * @param {any} x
+ */
+function assertPositiveInteger (x) {
+  if (!Number.isSafeInteger(x) || x < 1) {
+    throw new Error(`${x} is not a natural number`)
+  }
 }
