@@ -76,10 +76,12 @@ export class Artist {
   /**
    * @param {StrategyGraph} graph
    * @param {SVGElement} rootSvgEl
+   * @param {function(SVGGraphicsElement, StrategyNode):void} problemSvgCallback
    */
-  constructor (graph, rootSvgEl) {
+  constructor (graph, rootSvgEl, problemSvgCallback = null) {
     this.graph = graph
     this.rootSvgEl = rootSvgEl
+    this.problemSvgCallback = problemSvgCallback
     /**
      * @type {SVGGraphicsElement|null}
      */
@@ -132,6 +134,9 @@ export class Artist {
    */
   _drawNode (node) {
     const problemSvg = this._drawProblem(node)
+    if (this.problemSvgCallback) {
+      this.problemSvgCallback(problemSvg, node)
+    }
 
     const svgEls = [problemSvg]
     let pendingLink
@@ -200,7 +205,7 @@ export class Artist {
       'text-anchor': 'middle',
       y: PROBLEM_HEIGHT / 2,
       'font-size': PROBLEM_HEIGHT - 2 * PROBLEM_PADDING,
-      'alignment-baseline': 'central'
+      'dominant-baseline': 'central'
     }, [`${problem.currentSize} ⇒ ${problem.targetSize}`])
 
     const costText = node.cost !== null
@@ -209,7 +214,7 @@ export class Artist {
           'text-anchor': 'start',
           y: PROBLEM_HEIGHT / 2,
           'font-size': PROBLEM_COST_HEIGHT - 2 * PROBLEM_PADDING,
-          'alignment-baseline': 'central'
+          'dominant-baseline': 'central'
         }, [node.cost.toString()])
       : null
 
@@ -290,7 +295,7 @@ export class Artist {
       'text-anchor': textAtRight ? 'start' : 'end',
       y: (y1 + y2) / 2,
       'font-size': CONNECTOR_TEXT_HEIGHT,
-      'alignment-baseline': 'central'
+      'dominant-baseline': 'central'
     }, [text])
 
     return createSvgEl('g', {}, [connector, textSvg])

@@ -5,15 +5,39 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="index.css">
     <title>Cubique</title>
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"
         integrity="sha256-FZ8KwMj1F6qnNgA7bhPryVm19xKduH5OVr8u7I1tAtc=" crossorigin="anonymous"></script>
 
-<svg width="800" height="600" id="graph"></svg>
-<svg width="800" height="600" id="graph2"></svg>
-<svg width="800" height="600" id="graph3"></svg>
+<template id="cubique-strategy">
+    <div>
+        <h2>{{ startSize }} &rArr; {{ targetSize }}</h2>
+        <svg width="800" height="600" ref="svg"></svg>
+    </div>
+</template>
+
+<div id="app">
+    <h1>Cubique</h1>
+
+    <p>TODO: some description</p>
+
+    <h2>New strategy</h2>
+
+    <form id="new-strategy" v-on:submit.prevent="createStrategy">
+        <p>Convert a die of
+            <input type="number" name="start-size" min="2" :value="newStrategy.startSize" size="5">
+            faces into another of
+            <input type="number" name="target-size" min="2" :value="newStrategy.targetSize" size="5">
+            faces</p>
+        <button type="submit">Create</button>
+    </form>
+
+    <cubique-strategy v-for="strategy in strategies" :start-size="strategy.startSize" :target-size="strategy.targetSize"
+                      :key="strategy.key"></cubique-strategy>
+</div>
 
 <script src="index.mjs" type="module"></script>
 

@@ -1,0 +1,13 @@
+.problem {
+    cursor: pointer;
+}
+
+.problem:hover > rect {
+    stroke: blue;
+    stroke-width: 2;
+}
+
+.problem.selected > rect {
+    stroke: blue;
+    stroke-width: 2;
+}
