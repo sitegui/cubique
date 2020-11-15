@@ -16,6 +16,7 @@ console.log(okStrategy.toString())
 
 const dummyStrategy = new StrategyGraph(myProblem)
 dummyStrategy.findAnOpenNode().rethrow()
+dummyStrategy.findAnOpenNode().tryReduce(144, 7)
 dummyStrategy.findAnOpenNode().rethrow()
 
-new Artist(dummyStrategy, document.getElementById('graph')).draw()
+new Artist(okStrategy, document.getElementById('graph')).draw()

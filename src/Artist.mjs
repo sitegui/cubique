@@ -4,6 +4,7 @@ const PROBLEM_HEIGHT = 25
 const PROBLEM_WIDTH = 100
 const PROBLEM_PADDING = 3
 const NODE_SPACE_Y = 10
+const NODE_SPACE_X = 10
 
 class PendingLink {
   /**
@@ -59,10 +60,10 @@ export class Artist {
   /**
    */
   draw () {
-    const svgEl = this._drawNode(this.graph.root).svgEl
     while (this.rootSvgEl.firstChild) {
       this.rootSvgEl.removeChild(this.rootSvgEl.firstChild)
     }
+    const svgEl = this._drawNode(this.graph.root).svgEl
     this.rootSvgEl.appendChild(svgEl)
   }
 
@@ -74,12 +75,16 @@ export class Artist {
   _drawNode (node) {
     const problemSvg = this._drawProblem(node.problem)
 
-    let svgEl = null
-    let pendingLink = null
+    let svgEl
+    let pendingLink
 
-    if (node.action instanceof ActionRethrow || node.action instanceof ActionReduce) {
-      const childSketch = this._drawChild(node.action.child).translated(0, PROBLEM_HEIGHT + NODE_SPACE_Y)
-      const arrow = this._drawArrow(0, PROBLEM_HEIGHT, 0, PROBLEM_HEIGHT + NODE_SPACE_Y)
+    if (node.action === null) {
+      svgEl = problemSvg
+      pendingLink = null
+    } else if (node.action instanceof ActionRethrow || node.action instanceof ActionReduce) {
+      const dy = PROBLEM_HEIGHT + NODE_SPACE_Y
+      const childSketch = this._drawChild(node.action.child).translated(0, dy)
+      const arrow = childSketch.svgEl !== null ? this._drawArrow(0, PROBLEM_HEIGHT, 0, dy) : null
 
       svgEl = createSvgEl('g', {}, [
         problemSvg,
@@ -88,7 +93,28 @@ export class Artist {
       ])
       pendingLink = childSketch.pendingLink
     } else if (node.action instanceof ActionTryReduce) {
-      // TODO
+      let okSketch = this._drawNode(node.action.okNode)
+      const okBox = this._computeBox(okSketch.svgEl)
+      const okDx = NODE_SPACE_X / 2 - okBox.x
+      const okDy = PROBLEM_HEIGHT + NODE_SPACE_Y - okBox.y
+      okSketch = okSketch.translated(okDx, okDy)
+      const okArrow = this._drawArrow(0, PROBLEM_HEIGHT, okDx, okDy)
+
+      let errSketch = this._drawChild(node.action.errChild)
+      const errBox = this._computeBox(errSketch.svgEl)
+      const errDx = -NODE_SPACE_Y / 2 - errBox.width - errBox.x
+      const errDy = PROBLEM_HEIGHT + NODE_SPACE_Y - errBox.y
+      errSketch = errSketch.translated(errDx, errDy)
+      const errArrow = errSketch.svgEl !== null ? this._drawArrow(0, PROBLEM_HEIGHT, errDx, errDy) : null
+
+      svgEl = createSvgEl('g', {}, [
+        problemSvg,
+        okSketch.svgEl,
+        okArrow,
+        errSketch.svgEl,
+        errArrow
+      ])
+      pendingLink = errSketch.pendingLink
     }
 
     if (pendingLink !== null && pendingLink.node === node) {
@@ -166,6 +192,22 @@ export class Artist {
       y2,
       stroke: 'black'
     })
+  }
+
+  /**
+   * @param {SVGGraphicsElement|null} svgEl
+   * @returns {SVGRect}
+   * @private
+   */
+  _computeBox (svgEl) {
+    if (svgEl === null) {
+      return createSvgEl('rect').getBBox()
+    }
+
+    this.rootSvgEl.appendChild(svgEl)
+    const box = svgEl.getBBox()
+    this.rootSvgEl.removeChild(svgEl)
+    return box
   }
 }
 
