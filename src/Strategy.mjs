@@ -261,6 +261,9 @@ export class StrategyGraph {
      * @returns {LinearExpression}
      */
     function getCostForNode (node) {
+      // Clear previous state
+      node.cost = null
+
       if (node.action === null) {
         // Leaf node: base case
         if (node.problem.isSolved()) {
