@@ -114,6 +114,32 @@ export class Fraction {
   toString () {
     return this.denominator === 1 ? String(this.numerator) : `${this.numerator}/${this.denominator}`
   }
+
+  /**
+   * Return the fraction as "k + n/d", optionally adding parenthesis if required.
+   * This only works for non-negative values.
+   * @param {boolean} addParenthesis
+   * @returns {string}
+   */
+  asProperString (addParenthesis) {
+    if (this.numerator < 0) {
+      throw new Error(`Fraction ${this} is negative`)
+    }
+
+    if (this.denominator === 1) {
+      return String(this.numerator)
+    } else {
+      const integer = Math.floor(this.numerator / this.denominator)
+      const properNumerator = this.numerator - integer * this.denominator
+
+      if (integer === 0) {
+        return `${this.numerator}/${this.denominator}`
+      } else {
+        const result = `${integer} + ${properNumerator}/${this.denominator}`
+        return addParenthesis ? `(${result})` : result
+      }
+    }
+  }
 }
 
 /**

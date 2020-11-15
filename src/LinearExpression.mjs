@@ -153,7 +153,7 @@ export class LinearExpression {
     let string = ''
     let first = true
     if (!this.bias.isEquals(Fraction.zero())) {
-      string += this.bias.toString()
+      string += this.bias.asProperString(false)
       first = false
     }
 
@@ -168,7 +168,7 @@ export class LinearExpression {
         } else if (value.isEquals(Fraction.one().neg())) {
           string += `- ${variable.name}`
         } else {
-          string += `${value} ${variable.name}`
+          string += `${value.asProperString(true)} ${variable.name}`
         }
         first = false
       } else {
@@ -177,7 +177,7 @@ export class LinearExpression {
         if (valueAbs.isEquals(Fraction.one())) {
           string += ` ${sign} ${variable.name}`
         } else {
-          string += ` ${sign} ${value.abs()} ${variable.name}`
+          string += ` ${sign} ${value.abs().asProperString(true)} ${variable.name}`
         }
       }
     }
