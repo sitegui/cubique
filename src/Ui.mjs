@@ -1,5 +1,5 @@
 import { Problem, ValidActionReduce, ValidActionRethrow, ValidActionTryReduce } from './Problem.mjs'
-import { StrategyGraph } from './Strategy.mjs'
+import { ChildNewNode, StrategyGraph } from './Strategy.mjs'
 import { Artist } from './Artist.mjs'
 import Vue from './Vue.mjs'
 
@@ -20,10 +20,7 @@ Vue.component('cubique-strategy', {
   mounted () {
     const problem = new Problem(this.startSize, this.targetSize)
     const graph = new StrategyGraph(problem)
-    this.artist = new Artist(graph, this.$refs.svg, (problemSvg, node) => {
-      problemSvg.classList.add('problem')
-      problemSvg.onclick = () => this.problemClicked(problemSvg, node)
-    })
+    this.artist = new Artist(graph, this.$refs.svg)
     this.redraw()
   },
   methods: {
@@ -44,17 +41,38 @@ Vue.component('cubique-strategy', {
         if (action instanceof ValidActionRethrow) {
           return {
             text: 'Rethrow',
-            callback: () => node.rethrow()
+            callback: () => {
+              const child = node.rethrow().child
+              if (child instanceof ChildNewNode) {
+                return [child.node]
+              } else {
+                return []
+              }
+            }
           }
         } else if (action instanceof ValidActionReduce) {
           return {
             text: `Reduce by ${action.factor}`,
-            callback: () => node.reduce(action.factor)
+            callback: () => {
+              const child = node.reduce(action.factor).child
+              if (child instanceof ChildNewNode) {
+                return [child.node]
+              } else {
+                return []
+              }
+            }
           }
         } else if (action instanceof ValidActionTryReduce) {
           return {
             text: `Try to reduce by ${action.factor} (error rate = ${action.errRate})`,
-            callback: () => node.tryReduce(action.factor)
+            callback: () => {
+              const newAction = node.tryReduce(action.factor)
+              if (newAction.errChild instanceof ChildNewNode) {
+                return [newAction.errChild.node, newAction.okNode]
+              } else {
+                return [newAction.okNode]
+              }
+            }
           }
         }
       })
@@ -64,8 +82,14 @@ Vue.component('cubique-strategy', {
      * @param {{text: string, callback: function():void}} action
      */
     applyAction (action) {
-      action.callback()
+      const newNodes = action.callback()
       this.redraw()
+      for (const node of newNodes) {
+        if (!node.problem.isSolved()) {
+          this.problemClicked(this.artist.problemSvgByStrategyNode.get(node), node)
+          return
+        }
+      }
     },
 
     /**
@@ -76,6 +100,11 @@ Vue.component('cubique-strategy', {
       this.selectedNode = null
       this.selectedProblemSvg = null
       this.validActions = []
+      this.artist.graph.visitNodes(node => {
+        const problemSvg = this.artist.problemSvgByStrategyNode.get(node)
+        problemSvg.classList.add('problem')
+        problemSvg.onclick = () => this.problemClicked(problemSvg, node)
+      })
     }
   }
 })

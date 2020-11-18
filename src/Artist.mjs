@@ -76,16 +76,18 @@ export class Artist {
   /**
    * @param {StrategyGraph} graph
    * @param {SVGElement} rootSvgEl
-   * @param {function(SVGGraphicsElement, StrategyNode):void} problemSvgCallback
    */
-  constructor (graph, rootSvgEl, problemSvgCallback = null) {
+  constructor (graph, rootSvgEl) {
     this.graph = graph
     this.rootSvgEl = rootSvgEl
-    this.problemSvgCallback = problemSvgCallback
     /**
      * @type {SVGGraphicsElement|null}
      */
     this.currentDrawing = null
+    /**
+     * @type {Map<StrategyNode, SVGGraphicsElement>}
+     */
+    this.problemSvgByStrategyNode = new Map()
 
     this.rootSvgEl.setAttribute('preserveAspectRatio', 'xMidYMin meet')
     this.rootSvgEl.appendChild(createSvgEl('defs', {}, [
@@ -111,6 +113,7 @@ export class Artist {
     if (this.currentDrawing) {
       this.rootSvgEl.removeChild(this.currentDrawing)
     }
+    this.problemSvgByStrategyNode = new Map()
 
     const drawing = this._drawNode(this.graph.root).svgEl
     const box = this._computeBox(drawing)
@@ -134,9 +137,7 @@ export class Artist {
    */
   _drawNode (node) {
     const problemSvg = this._drawProblem(node)
-    if (this.problemSvgCallback) {
-      this.problemSvgCallback(problemSvg, node)
-    }
+    this.problemSvgByStrategyNode.set(node, problemSvg)
 
     const svgEls = [problemSvg]
     let pendingLink
