@@ -1,33 +1,81 @@
-import { Problem } from './Problem.mjs'
+import { Problem, ValidActionReduce, ValidActionRethrow, ValidActionTryReduce } from './Problem.mjs'
 import { StrategyGraph } from './Strategy.mjs'
 import { Artist } from './Artist.mjs'
 import Vue from './Vue.mjs'
 
 Vue.component('cubique-strategy', {
-  props: ['startSize', 'targetSize'],
+  props: {
+    startSize: Number,
+    targetSize: Number
+  },
   data () {
     return {
-      artist: null
+      artist: null,
+      selectedProblemSvg: null,
+      selectedNode: null,
+      validActions: []
     }
   },
   template: '#cubique-strategy',
   mounted () {
     const problem = new Problem(this.startSize, this.targetSize)
     const graph = new StrategyGraph(problem)
-    this.artist = new Artist(graph, this.$refs.svg, (problem, node) => {
-      problem.classList.add('problem')
-      problem.onclick = () => this.problemClicked(problem, node)
+    this.artist = new Artist(graph, this.$refs.svg, (problemSvg, node) => {
+      problemSvg.classList.add('problem')
+      problemSvg.onclick = () => this.problemClicked(problemSvg, node)
     })
-    this.artist.draw()
+    this.redraw()
   },
   methods: {
     /**
-     * @param {Problem} problem
+     * @param {SVGGraphicsElement} problemSvg
      * @param {StrategyNode} node
      */
-    problemClicked (problem, node) {
-      node.rethrow()
+    problemClicked (problemSvg, node) {
+      if (this.selectedProblemSvg) {
+        this.selectedProblemSvg.classList.remove('selected')
+      }
+      this.selectedProblemSvg = problemSvg
+      this.selectedProblemSvg.classList.add('selected')
+
+      this.selectedNode = node
+
+      this.validActions = node.problem.listValidActions().map(action => {
+        if (action instanceof ValidActionRethrow) {
+          return {
+            text: 'Rethrow',
+            callback: () => node.rethrow()
+          }
+        } else if (action instanceof ValidActionReduce) {
+          return {
+            text: `Reduce by ${action.factor}`,
+            callback: () => node.reduce(action.factor)
+          }
+        } else if (action instanceof ValidActionTryReduce) {
+          return {
+            text: `Try to reduce by ${action.currentFactor} ⇒ ${action.targetFactor} (error rate = ${action.errRate})`,
+            callback: () => node.tryReduce(action.currentFactor, action.targetFactor)
+          }
+        }
+      })
+    },
+
+    /**
+     * @param {{text: string, callback: function():void}} action
+     */
+    applyAction (action) {
+      action.callback()
+      this.redraw()
+    },
+
+    /**
+     */
+    redraw () {
+      this.artist.graph.updateCosts()
       this.artist.draw()
+      this.selectedNode = null
+      this.selectedProblemSvg = null
+      this.validActions = []
     }
   }
 })
@@ -46,8 +94,8 @@ export function start () {
     methods: {
       createStrategy () {
         this.strategies.push({
-          startSize: this.newStrategy.startSize,
-          targetSize: this.newStrategy.targetSize,
+          startSize: Number(this.newStrategy.startSize),
+          targetSize: Number(this.newStrategy.targetSize),
           key: String(Math.random())
         })
       }

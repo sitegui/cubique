@@ -1,4 +1,32 @@
 import { Fraction } from './Fraction.mjs'
+import { listCommonDivisors, listDivisors } from './divisors.mjs'
+
+export class ValidActionRethrow {
+}
+
+export class ValidActionReduce {
+  /**
+   * @param {number} factor
+   */
+  constructor (factor) {
+    this.factor = factor
+  }
+}
+
+export class ValidActionTryReduce {
+  /**
+   * @param {number} currentFactor
+   * @param {number} targetFactor
+   */
+  constructor (currentFactor, targetFactor) {
+    this.currentFactor = currentFactor
+    this.targetFactor = targetFactor
+    /**
+     * @type {Fraction}
+     */
+    this.errRate = new Fraction(currentFactor % targetFactor, currentFactor)
+  }
+}
 
 export class Problem {
   constructor (startSize, targetSize) {
@@ -92,6 +120,37 @@ export class Problem {
    */
   toString () {
     return `${this.currentSize} -> ${this.targetSize}`
+  }
+
+  /**
+   * @returns {array<ValidActionRethrow|ValidActionReduce|ValidActionTryReduce>}
+   */
+  listValidActions () {
+    const actions = []
+
+    if (!this.isSolved()) {
+      actions.push(new ValidActionRethrow())
+    }
+
+    for (const factor of listCommonDivisors(this.currentSize, this.targetSize)) {
+      if (factor > 1) {
+        actions.push(new ValidActionReduce(factor))
+      }
+    }
+
+    const currentDivisors = listDivisors(this.currentSize)
+    const targetDivisors = listDivisors(this.targetSize)
+    for (const currentDivisor of currentDivisors) {
+      if (currentDivisor > 1) {
+        for (const targetDivisor of targetDivisors) {
+          if (targetDivisor > 1 && currentDivisor > targetDivisor && currentDivisor % targetDivisor !== 0) {
+            actions.push(new ValidActionTryReduce(currentDivisor, targetDivisor))
+          }
+        }
+      }
+    }
+
+    return actions
   }
 
   _clone () {

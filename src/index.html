@@ -15,7 +15,15 @@
 <template id="cubique-strategy">
     <div>
         <h2>{{ startSize }} &rArr; {{ targetSize }}</h2>
-        <svg width="800" height="600" ref="svg"></svg>
+        <p>
+            <svg width="800" height="600" ref="svg"></svg>
+        </p>
+        <div v-if="validActions.length">
+            <p>Next action:</p>
+            <p v-for="action in validActions">
+                <button @click="applyAction(action)">{{ action.text }}</button>
+            </p>
+        </div>
     </div>
 </template>
 
@@ -28,9 +36,9 @@
 
     <form id="new-strategy" v-on:submit.prevent="createStrategy">
         <p>Convert a die of
-            <input type="number" name="start-size" min="2" :value="newStrategy.startSize" size="5">
+            <input type="number" name="start-size" min="2" v-model:value="newStrategy.startSize" size="5">
             faces into another of
-            <input type="number" name="target-size" min="2" :value="newStrategy.targetSize" size="5">
+            <input type="number" name="target-size" min="2" v-model:value="newStrategy.targetSize" size="5">
             faces</p>
         <button type="submit">Create</button>
     </form>
