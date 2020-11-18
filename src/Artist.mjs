@@ -166,7 +166,7 @@ export class Artist {
       const okDx = NODE_SPACE_X / 2 - okBox.x
       const okDy = PROBLEM_HEIGHT + NODE_SPACE_Y - okBox.y
       okSketch = okSketch.translated(okDx, okDy)
-      const okActionText = `reduce ${node.action.currentFactor} ⇒ ${node.action.targetFactor}`
+      const okActionText = `reduce by ${node.action.factor}`
       const okArrow = this._drawConnector(0, PROBLEM_HEIGHT, okDx, okDy, false, okActionText, true)
 
       const errActionText = `err rate = ${node.action.errRate}`

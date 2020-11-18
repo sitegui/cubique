@@ -15,23 +15,19 @@ export class ValidActionReduce {
 
 export class ValidActionTryReduce {
   /**
-   * @param {number} currentFactor
-   * @param {number} targetFactor
+   * @param {number} factor
+   * @param {Fraction} errRate
    */
-  constructor (currentFactor, targetFactor) {
-    this.currentFactor = currentFactor
-    this.targetFactor = targetFactor
-    /**
-     * @type {Fraction}
-     */
-    this.errRate = new Fraction(currentFactor % targetFactor, currentFactor)
+  constructor (factor, errRate) {
+    this.factor = factor
+    this.errRate = errRate
   }
 }
 
 export class Problem {
   constructor (startSize, targetSize) {
     this.startSize = startSize
-    this.currentSize = startSize
+    this.currentSize = 1
     this.targetSize = targetSize
   }
 
@@ -65,33 +61,29 @@ export class Problem {
   }
 
   /**
-   * Returns the possible results when doing an imperfect match between factor from each side
-   * @param currentFactor
-   * @param targetFactor
+   * Returns the possible results when doing an imperfect match between a factor for both sides
+   * @param factor
    * @returns {{err: Problem, ok: Problem, errRate: Fraction}}
    */
-  tryReduce (currentFactor, targetFactor) {
-    if (this.currentSize % currentFactor !== 0) {
-      throw new Error(`Current size (${this.currentSize}) is not a multiple of ${currentFactor}`)
+  tryReduce (factor) {
+    if (this.currentSize <= factor) {
+      throw new Error(`Current size (${this.currentSize}) is smaller than ${factor}`)
     }
-    if (this.targetSize % targetFactor !== 0) {
-      throw new Error(`Target size (${this.targetSize}) is not a multiple of ${targetFactor}`)
+    if (this.targetSize % factor !== 0) {
+      throw new Error(`Target size (${this.targetSize}) is not a multiple of ${factor}`)
     }
-    if (currentFactor <= targetFactor) {
-      throw new Error(`${currentFactor} should be larger than ${targetFactor}`)
-    }
-    if (currentFactor % targetFactor === 0) {
-      throw new Error(`${currentFactor} should not be a multiple of ${targetFactor}`)
+    if (this.currentSize % factor === 0) {
+      throw new Error(`Current size (${this.currentSize}) is a multiple of ${factor}`)
     }
 
     const ok = this._clone()
-    ok.targetSize /= targetFactor
-    ok.currentSize /= currentFactor
+    ok.targetSize /= factor
+    ok.currentSize = 1
 
     const err = this._clone()
-    err.currentSize /= currentFactor
+    err.currentSize = this.currentSize % factor
 
-    const errRate = new Fraction(currentFactor % targetFactor, currentFactor)
+    const errRate = new Fraction(this.currentSize % factor, this.currentSize)
 
     return {
       ok,
@@ -138,15 +130,10 @@ export class Problem {
       }
     }
 
-    const currentDivisors = listDivisors(this.currentSize)
-    const targetDivisors = listDivisors(this.targetSize)
-    for (const currentDivisor of currentDivisors) {
-      if (currentDivisor > 1) {
-        for (const targetDivisor of targetDivisors) {
-          if (targetDivisor > 1 && currentDivisor > targetDivisor && currentDivisor % targetDivisor !== 0) {
-            actions.push(new ValidActionTryReduce(currentDivisor, targetDivisor))
-          }
-        }
+    for (const factor of listDivisors(this.targetSize)) {
+      if (factor > 1 && factor < this.currentSize && this.currentSize % factor !== 0) {
+        const errRate = new Fraction(this.currentSize % factor, this.currentSize)
+        actions.push(new ValidActionTryReduce(factor, errRate))
       }
     }
 

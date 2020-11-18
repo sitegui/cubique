@@ -53,8 +53,8 @@ Vue.component('cubique-strategy', {
           }
         } else if (action instanceof ValidActionTryReduce) {
           return {
-            text: `Try to reduce by ${action.currentFactor} ⇒ ${action.targetFactor} (error rate = ${action.errRate})`,
-            callback: () => node.tryReduce(action.currentFactor, action.targetFactor)
+            text: `Try to reduce by ${action.factor} (error rate = ${action.errRate})`,
+            callback: () => node.tryReduce(action.factor)
           }
         }
       })

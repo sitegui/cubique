@@ -50,22 +50,20 @@ export class ActionReduce {
 
 export class ActionTryReduce {
   /**
-   * @param {number} currentFactor
-   * @param {number} targetFactor
+   * @param {number} factor
    * @param {Fraction} errRate
    * @param {StrategyNode} okNode
    * @param {ChildNewNode|ChildLink} errChild
    */
-  constructor (currentFactor, targetFactor, errRate, okNode, errChild) {
-    this.currentFactor = currentFactor
-    this.targetFactor = targetFactor
+  constructor (factor, errRate, okNode, errChild) {
+    this.factor = factor
     this.errRate = errRate
     this.okNode = okNode
     this.errChild = errChild
   }
 
   toString () {
-    return `try to reduce by ${this.currentFactor} -> ${this.targetFactor} to get ${this.okNode.problem}. If not, get ${this.errChild.node.problem}`
+    return `try to reduce by ${this.factor} to get ${this.okNode.problem}. If not, get ${this.errChild.node.problem}`
   }
 }
 
@@ -113,16 +111,14 @@ export class StrategyNode {
   }
 
   /**
-   * Replace the current action by an imperfect match between factor from each side
-   * @param currentFactor
-   * @param targetFactor
+   * Replace the current action by an imperfect match between a factor for the two sides
+   * @param {number} factor
    * @returns {ActionTryReduce}
    */
-  tryReduce (currentFactor, targetFactor) {
-    const { err, errRate, ok } = this.problem.tryReduce(currentFactor, targetFactor)
+  tryReduce (factor) {
+    const { err, errRate, ok } = this.problem.tryReduce(factor)
     const action = new ActionTryReduce(
-      currentFactor,
-      targetFactor,
+      factor,
       errRate,
       new StrategyNode(this.graph, this, ok),
       this._buildChild(err, this))
@@ -346,8 +342,10 @@ export class StrategyGraph {
 
       if (node.problem.currentSize < node.problem.targetSize) {
         node.rethrow()
+      } else if (node.problem.currentSize % node.problem.targetSize === 0) {
+        node.reduce(node.problem.targetSize)
       } else {
-        node.tryReduce(node.problem.currentSize, node.problem.targetSize)
+        node.tryReduce(node.problem.targetSize)
       }
     }
   }
@@ -370,8 +368,10 @@ export class StrategyGraph {
         node.reduce(gcd)
       } else if (node.problem.currentSize < node.problem.targetSize) {
         node.rethrow()
+      } else if (node.problem.currentSize % node.problem.targetSize === 0) {
+        node.reduce(node.problem.targetSize)
       } else {
-        node.tryReduce(node.problem.currentSize, node.problem.targetSize)
+        node.tryReduce(node.problem.targetSize)
       }
     }
   }
