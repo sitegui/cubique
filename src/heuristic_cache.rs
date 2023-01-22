@@ -3,7 +3,7 @@ use crate::State;
 use std::collections::HashMap;
 
 pub struct HeuristicCache<S> {
-    cache: HashMap<State, f32>,
+    cache: HashMap<State, f64>,
     solver: S,
 }
 
@@ -15,7 +15,7 @@ impl<S: FnMut(State) -> Plan> HeuristicCache<S> {
         }
     }
 
-    pub fn calculate(&mut self, state: State) -> f32 {
+    pub fn calculate(&mut self, state: State) -> f64 {
         *self.cache.entry(state).or_insert_with(|| {
             (self.solver)(state)
                 .exact_cost()

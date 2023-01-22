@@ -1,10 +1,10 @@
 #[derive(Debug)]
 pub struct Divider {
-    all_divisors: Vec<Vec<u16>>,
+    all_divisors: Vec<Vec<u32>>,
 }
 
 impl Divider {
-    pub fn new(target: u16) -> Self {
+    pub fn new(target: u32) -> Self {
         let mut all_divisors = Vec::with_capacity(target as usize + 1);
         all_divisors.resize_with(target as usize + 1, Vec::new);
 
@@ -30,7 +30,7 @@ impl Divider {
         Divider { all_divisors }
     }
 
-    pub fn divisors(&self, n: u16) -> &[u16] {
+    pub fn divisors(&self, n: u32) -> &[u32] {
         &self.all_divisors[n as usize]
     }
 }

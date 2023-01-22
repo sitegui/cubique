@@ -10,33 +10,33 @@ struct InnerPlanCost {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum InnerPlanCostValue {
-    NonCycle(f32),
+    NonCycle(f64),
     /// The cycle cost expressed as `a * x + b`, where `cost(base) = x`
     Cycle {
         base: State,
-        a: f32,
-        b: f32,
+        a: f64,
+        b: f64,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlanCost {
     pub estimated: bool,
-    pub value: f32,
+    pub value: f64,
 }
 
 impl Plan {
-    pub fn exact_cost(&self) -> Option<f32> {
+    pub fn exact_cost(&self) -> Option<f64> {
         let cost = self.cost(|_| 0.0);
 
         (!cost.estimated).then_some(cost.value)
     }
 
-    pub fn cost(&self, mut heuristic: impl FnMut(State) -> f32) -> PlanCost {
+    pub fn cost(&self, mut heuristic: impl FnMut(State) -> f64) -> PlanCost {
         self.cost_for(self.start, &mut heuristic)
     }
 
-    fn cost_for(&self, state: State, heuristic: &mut impl FnMut(State) -> f32) -> PlanCost {
+    fn cost_for(&self, state: State, heuristic: &mut impl FnMut(State) -> f64) -> PlanCost {
         let cost = self.inner_cost(&mut HashSet::new(), state, heuristic);
 
         match cost.value {
@@ -52,11 +52,11 @@ impl Plan {
         &self,
         visited_branching: &mut HashSet<State>,
         state: State,
-        heuristic: &mut impl FnMut(State) -> f32,
+        heuristic: &mut impl FnMut(State) -> f64,
     ) -> InnerPlanCost {
         match self.plans[&state] {
             PlanBranch::Solved => InnerPlanCost::exact(0.0),
-            PlanBranch::Pending => InnerPlanCost::estimated(heuristic(state)),
+            PlanBranch::Pending { .. } => InnerPlanCost::estimated(heuristic(state)),
             PlanBranch::Throw { next } => {
                 self.inner_throw_cost(visited_branching, state, heuristic, next)
             }
@@ -79,7 +79,7 @@ impl Plan {
         &self,
         visited_branching: &mut HashSet<State>,
         state: State,
-        heuristic: &mut impl FnMut(State) -> f32,
+        heuristic: &mut impl FnMut(State) -> f64,
         next: State,
     ) -> InnerPlanCost {
         if !visited_branching.insert(state) {
@@ -99,8 +99,8 @@ impl Plan {
         &self,
         visited_branching: &mut HashSet<State>,
         state: State,
-        mut heuristic: &mut impl FnMut(State) -> f32,
-        units: u16,
+        heuristic: &mut impl FnMut(State) -> f64,
+        units: u32,
         sub_problem: State,
         remaining: Option<State>,
     ) -> InnerPlanCost {
@@ -116,7 +116,7 @@ impl Plan {
                 value: InnerPlanCostValue::NonCycle(sub_cost.value),
             },
             Some(remaining) => {
-                let ratio = units as f32 / state.units as f32;
+                let ratio = units as f64 / state.units as f64;
                 let remaining_cost = self.inner_cost(visited_branching, remaining, heuristic);
                 let this_value = remaining_cost.value.solve_linear_equation(
                     state,
@@ -134,14 +134,14 @@ impl Plan {
 }
 
 impl InnerPlanCost {
-    fn exact(value: f32) -> Self {
+    fn exact(value: f64) -> Self {
         InnerPlanCost {
             estimated: false,
             value: InnerPlanCostValue::NonCycle(value),
         }
     }
 
-    fn estimated(value: f32) -> Self {
+    fn estimated(value: f64) -> Self {
         InnerPlanCost {
             estimated: true,
             value: InnerPlanCostValue::NonCycle(value),
@@ -162,7 +162,7 @@ impl InnerPlanCost {
 
 impl InnerPlanCostValue {
     /// Solve the equation `x = p * self + q` for `x`, where `self` may or may not depend on `x`
-    fn solve_linear_equation(self, state: State, p: f32, q: f32) -> InnerPlanCostValue {
+    fn solve_linear_equation(self, state: State, p: f64, q: f64) -> InnerPlanCostValue {
         match self {
             InnerPlanCostValue::NonCycle(z) => InnerPlanCostValue::NonCycle(p * z + q),
             InnerPlanCostValue::Cycle { base, a, b } => {

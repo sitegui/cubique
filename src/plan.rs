@@ -15,12 +15,14 @@ pub struct Plan {
 #[derive(Debug, Clone, Copy)]
 pub enum PlanBranch {
     Solved,
-    Pending,
+    Pending {
+        min_map_units: u32,
+    },
     Throw {
         next: State,
     },
     Map {
-        units: u16,
+        units: u32,
         sub_problem: State,
         remaining: Option<State>,
     },
@@ -31,6 +33,7 @@ pub enum ApplyError {
     StateDoesNotExist,
     StateNotPending,
     MapDoesNotDivide,
+    MapToFewUnits,
 }
 
 impl Plan {
@@ -39,7 +42,7 @@ impl Plan {
             start,
             plans: HashMap::default(),
         };
-        plan.ensure_state(start);
+        plan.ensure_state(start, 2);
         plan
     }
 
@@ -47,7 +50,7 @@ impl Plan {
         let mut actions = Vec::new();
 
         for (&state, branch) in &self.plans {
-            if matches!(branch, PlanBranch::Pending) {
+            if let &PlanBranch::Pending { min_map_units } = branch {
                 actions.push((state, Action::Throw));
 
                 for &units in divider.divisors(state.target) {
@@ -55,7 +58,9 @@ impl Plan {
                         break;
                     }
 
-                    actions.push((state, Action::Map(units)));
+                    if units >= min_map_units {
+                        actions.push((state, Action::Map(units)));
+                    }
                 }
             }
         }
@@ -67,36 +72,50 @@ impl Plan {
         match self.plans.get(&state) {
             None => Err(ApplyError::StateDoesNotExist),
             Some(prev_entry) => {
-                if !matches!(prev_entry, PlanBranch::Pending) {
-                    return Err(ApplyError::StateNotPending);
-                }
+                let min_map_units = match prev_entry {
+                    &PlanBranch::Pending { min_map_units } => min_map_units,
+                    _ => {
+                        return Err(ApplyError::StateNotPending);
+                    }
+                };
 
                 let branch = match action {
                     Action::Throw => PlanBranch::Throw {
-                        next: self.ensure_state(State {
-                            source: state.source,
-                            target: state.target,
-                            units: state.units * state.source,
-                        }),
+                        next: self.ensure_state(
+                            State {
+                                source: state.source,
+                                target: state.target,
+                                units: state.units * state.source,
+                            },
+                            2,
+                        ),
                     },
                     Action::Map(units) => {
                         if state.target % units != 0 {
                             return Err(ApplyError::MapDoesNotDivide);
+                        } else if units < min_map_units {
+                            return Err(ApplyError::MapToFewUnits);
                         }
 
-                        let sub_problem = self.ensure_state(State {
-                            source: state.source,
-                            target: state.target / units,
-                            units: 1,
-                        });
+                        let sub_problem = self.ensure_state(
+                            State {
+                                source: state.source,
+                                target: state.target / units,
+                                units: 1,
+                            },
+                            2,
+                        );
 
                         let remaining_units = state.units - units;
                         let remaining = (remaining_units > 0).then(|| {
-                            self.ensure_state(State {
-                                source: state.source,
-                                target: state.target,
-                                units: remaining_units,
-                            })
+                            self.ensure_state(
+                                State {
+                                    source: state.source,
+                                    target: state.target,
+                                    units: remaining_units,
+                                },
+                                units,
+                            )
                         });
 
                         PlanBranch::Map {
@@ -121,12 +140,12 @@ impl Plan {
         &self.plans
     }
 
-    fn ensure_state(&mut self, state: State) -> State {
+    fn ensure_state(&mut self, state: State, min_map_units: u32) -> State {
         if let Entry::Vacant(vacant) = self.plans.entry(state) {
             vacant.insert(if state.solved() {
                 PlanBranch::Solved
             } else {
-                PlanBranch::Pending
+                PlanBranch::Pending { min_map_units }
             });
         }
         state
@@ -152,8 +171,8 @@ impl Display for Plan {
                 PlanBranch::Solved => {
                     writeln!(f, "solved")?;
                 }
-                PlanBranch::Pending => {
-                    writeln!(f, "pending")?;
+                PlanBranch::Pending { min_map_units } => {
+                    writeln!(f, "pending (min_map_units = {})", min_map_units)?;
                 }
                 PlanBranch::Throw { next } => {
                     writeln!(f, "throw to {}/{}", next.units, next.target)?;
